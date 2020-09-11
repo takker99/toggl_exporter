@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib":["ESNext"],
+    "strict": true,
+    "types":[
+        "@types/node",
+        "@types/google-apps-script"
+    ],
+    "moduleResolution":"Node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

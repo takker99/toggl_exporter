@@ -1,0 +1,19 @@
+{
+  "name": "toggl_exporter",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "repository": "git@github.com:takker99/toggl_exporter.git",
+  "author": "takker99 <37929109+takker99@users.noreply.github.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@google/clasp": "^2.3.0",
+    "@types/google-apps-script": "^1.0.16",
+    "@types/node": "^14.10.0",
+    "@typescript-eslint/eslint-plugin": "^4.1.0",
+    "@typescript-eslint/parser": "^4.1.0",
+    "eslint": "^7.8.1",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "prettier": "^2.1.1"
+  }
+}
