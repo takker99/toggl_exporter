@@ -1,10 +1,3 @@
-export function getCacheKey(): string {
-    const scriptProperties = PropertiesService.getScriptProperties();
-    const key = scriptProperties.getProperty('CACHE_KEY');
-    if (key) return key;
-    throw 'no cache key';
-}
-
 export function getTogglToken(): string {
     const scriptProperties = PropertiesService.getScriptProperties();
     const token = scriptProperties.getProperty('TOGGL_BASIC_AUTH');
