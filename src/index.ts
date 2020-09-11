@@ -10,45 +10,41 @@
 import { getCacheKey, getTogglToken, getTargetCalendar } from './settings';
 import { TimeEntriesResponse } from './TimeEntriesResponse';
 import { ProjectsResponse } from './ProjectsResponse';
-import moment from 'moment';
-const Moment = { moment: moment }; // GAS対策 cf. https://qiita.com/awa2/items/d24df6abd5fd5e4ca3d9
 
-const TIME_OFFSET = 9 * 60 * 60; // JST
+const CACHE_FILE_NAME = 'toggl_exporter_cache';
 
 function getLastModifyDatetime() {
-    let file = DriveApp.getFilesByName('toggl_exporter_cache');
-    if (!file.hasNext()) {
-        const now = Moment.moment().format('X');
-        const beginning_of_day = parseInt(
-            now - ((now % 86400) + TIME_OFFSET),
-            10
-        ).toFixed();
-        putLastModifyDatetime(beginning_of_day);
-        return beginning_of_day;
-    }
-    file = file.next();
-    const data = JSON.parse(
-        file.getAs('application/octet-stream').getDataAsString()
+    const scriptProperties = PropertiesService.getScriptProperties();
+    const lastModifiedDatetime = scriptProperties.getProperty(
+        'LAST_MODIFIED_DATETIME'
     );
-    return parseInt(data[getCacheKey()], 10).toFixed();
+    if (lastModifiedDatetime) return parseInt(lastModifiedDatetime);
+    // 値がなければ新規に設定する
+    const beginning_of_day = new Date();
+    beginning_of_day.setTime(Date.now());
+    beginning_of_day.setUTCHours(-9, 0, 0, 0);
+    console.log(
+        `Time entries from ${beginning_of_day.toISOString()} will be logged.`
+    );
+    putLastModifyDatetime(beginning_of_day.getTime());
+    return beginning_of_day.getTime();
 }
 
-function putLastModifyDatetime(unix_timestamp: string) {
-    const cache: { [index: string]: string } = {};
-    cache[getCacheKey()] = unix_timestamp;
-    let file = DriveApp.getFilesByName('toggl_exporter_cache');
-    if (!file.hasNext()) {
-        DriveApp.createFile('toggl_exporter_cache', JSON.stringify(cache));
-        return true;
-    }
-    file = file.next();
-    file.setContent(JSON.stringify(cache));
+function putLastModifyDatetime(unix_timestamp: number) {
+    const scriptProperties = PropertiesService.getScriptProperties();
+    scriptProperties.setProperty(
+        'LAST_MODIFIED_DATETIME',
+        unix_timestamp.toString()
+    );
     return true;
 }
 
-function getTimeEntries(unix_timestamp: string) {
+function getTimeEntries(unix_timestamp: number) {
+    const date = new Date();
+    date.setTime(unix_timestamp);
+    console.log(`Getting time entries from ${date.toISOString()}...`);
     const uri = `https://www.toggl.com/api/v8/time_entries?start_date=${encodeURIComponent(
-        Moment.moment(unix_timestamp, 'X').format()
+        date.toISOString()
     )}`;
     const response = UrlFetchApp.fetch(uri, {
         method: 'get',
@@ -60,7 +56,7 @@ function getTimeEntries(unix_timestamp: string) {
     try {
         return JSON.parse(response.getContentText()) as TimeEntriesResponse[];
     } catch (e) {
-        console.error([unix_timestamp, e]);
+        console.error([date.toISOString(), e]);
     }
 }
 
@@ -82,18 +78,25 @@ function getProjectData(project_id: number) {
 
 function recordActivityLog(
     description: string,
-    started_at: string | number | Date,
-    ended_at: string | number | Date
+    started_at: number,
+    ended_at: number
 ) {
     const calendar = CalendarApp.getCalendarById(getTargetCalendar());
     calendar.setTimeZone('Asia/Tokyo');
-    calendar.createEvent(description, new Date(started_at), new Date(ended_at));
+    const { start, end } = { start: new Date(), end: new Date() };
+    start.setTime(started_at);
+    end.setTime(ended_at);
+    calendar.createEvent(description, start, end);
+    console.log(
+        `Registered the event:\n\ttitle: ${description}\n\tstart: ${start.toISOString()}\n\tend: ${end.toISOString()}`
+    );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function watch() {
     try {
-        const check_datetime = getLastModifyDatetime();
-        const time_entries = getTimeEntries(check_datetime);
+        const check_timestamp = getLastModifyDatetime();
+        const time_entries = getTimeEntries(check_timestamp);
 
         if (!time_entries) return;
         let last_stop_datetime: string | undefined = undefined;
@@ -101,22 +104,19 @@ function watch() {
             if (!record.stop) continue;
 
             const project_data = getProjectData(record.pid);
-            const project_name = project_data ? project_data.name : '';
-            const activity_log = [record.description, project_name].join(' : ');
+            const project_name = project_data
+                ? project_data.name
+                : 'no project';
 
             recordActivityLog(
-                activity_log,
-                Moment.moment(record.start).format(),
-                Moment.moment(record.stop).format()
+                `${record.description} : ${project_name}`,
+                Date.parse(record.start),
+                Date.parse(record.stop)
             );
             last_stop_datetime = record.stop;
         }
         if (!last_stop_datetime) return;
-        putLastModifyDatetime(
-            (
-                parseInt(Moment.moment(last_stop_datetime).format('X'), 10) + 1
-            ).toFixed()
-        );
+        putLastModifyDatetime(Date.parse(last_stop_datetime));
     } catch (e) {
         console.error(e);
     }

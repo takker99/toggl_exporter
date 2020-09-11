@@ -3,8 +3,8 @@ export interface TimeEntriesResponse {
     wid: number;
     pid: number;
     billable: boolean;
-    start: string;
-    stop: string;
+    start: string; // ISO 8601
+    stop: string; // ISO 8601
     duration: number;
     description?: string;
     tags: string[];
